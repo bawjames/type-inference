@@ -1,4 +1,4 @@
-module Parser (entry, go) where
+module Parser (parseEntry, entry) where
 
 import ParseTree
 import Data.Functor (($>))
@@ -34,8 +34,8 @@ lexeme = P.lexeme lexer
 
 parens = P.parens lexer
 
-go :: FilePath -> IO ()
-go fileName = print =<< parseFromFile entry fileName
+parseEntry :: String -> SourceName -> Either ParseError [Assign]
+parseEntry = runParser entry ()
 
 entry :: Parser [Assign]
 entry = spaces *> many assign <* eof
