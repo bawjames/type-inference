@@ -1,6 +1,6 @@
 module ParseTree where
 
-data Assign = Assign Ident Expr
+data Assign = Let Ident Expr
   deriving (Show)
 
 data Expr

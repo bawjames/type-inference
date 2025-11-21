@@ -42,7 +42,7 @@ entry = spaces *> many assign <* eof
 
 assign :: Parser Assign
 assign =
-  Assign
+  Let
     <$> (reserved "let" *> identifier)
     <*> (reservedOp "=" *> expr)
 

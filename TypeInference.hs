@@ -30,7 +30,10 @@ data Type
   deriving (Eq, Ord)
 
 instance Show Type where
-  show (Function a b) = "(" ++ show a ++ " -> " ++ show b ++ ")"
+  show (Function a b) = showLeft a ++ " -> " ++ show b
+    where
+      showLeft f@(Function _ _) = "(" ++ show f ++ ")"
+      showLeft t = show t
   show (Concrete prim) = show prim
   show (Var int) = "t" ++ show int
 
@@ -59,22 +62,31 @@ type IdGen = State Int
 freshVar :: IdGen Type
 freshVar = gets Var <* modify (+ 1)
 
-inferAll :: Environment -> [Assign] -> MaybeT IdGen Environment
-inferAll = foldM generalise
-
 generalise ::
   Environment ->
   Assign ->
   MaybeT IdGen Environment
 generalise env (Assign ident expr) = do
   (t, cs) <- infer env expr
-  let t' = solve t $ unify cs
-  let env' = Map.map (schemeSubst t t') env
-  return $ Map.insert ident (ForAll (findVars t') t') env'
-  where
-    findVars (Function a b) = findVars a <> findVars b
-    findVars (Var n) = Set.singleton n
-    findVars _ = Set.empty
+  let sol = unify cs
+  let t' = solve t sol
+  let env' = Map.map (`solveScheme` sol) env
+  let vars = fvType t' Set.\\ fvEnv env'
+  return $ Map.insert ident (ForAll vars t') env'
+
+fvType :: Type -> Set.Set Int
+fvType (Function a b) = fvType a <> fvType b
+fvType (Var n) = Set.singleton n
+fvType _ = Set.empty
+
+fvScheme :: Scheme -> Set.Set Int
+fvScheme (ForAll vars t) = fvType t Set.\\ vars
+
+fvEnv :: Environment -> Set.Set Int
+fvEnv env = Set.unions $ map fvScheme $ Map.elems env
+
+solveScheme :: Scheme -> Solution -> Scheme
+solveScheme (ForAll vars t) sol = ForAll vars $ solve t sol
 
 solve :: Type -> Solution -> Type
 solve = Set.foldr $ \(Substitute a b) t -> subst a b t
@@ -104,22 +116,17 @@ unify cs =
             Constraint (subst v t a) (subst v t b)
 
 instantiate :: Scheme -> IdGen Type
-instantiate (ForAll xs t) = do
-  foldM substVar t (Set.map Var xs)
+instantiate (ForAll s t) = foldM substVar t s
   where
-    substVar a b = subst a <$> freshVar <*> pure b
-
-schemeSubst :: Type -> Type -> Scheme -> Scheme
-schemeSubst v@(Var n) u@(Var m) (ForAll s t) | Set.member n s =
-  ForAll (Set.insert m $ Set.delete n s) $ subst v u t
-schemeSubst v@(Var n) u (ForAll s t) | Set.member n s =
-  ForAll (Set.delete n s) $ subst v u t
-schemeSubst v u (ForAll s t) = ForAll s $ subst v u t
+    substVar t n = subst (Var n) <$> freshVar <*> pure t
 
 subst :: Type -> Type -> Type -> Type
 subst a t b | a == b = t
 subst n t (Function a b) = Function (subst n t a) (subst n t b)
 subst _ _ x = x
+
+inferAll :: Environment -> [Assign] -> MaybeT IdGen Environment
+inferAll = foldM generalise
 
 infer :: Environment -> Expr -> MaybeT IdGen (Type, Constraints)
 infer _ (Literal lit) = return . (,Set.empty) <$> Concrete $
@@ -143,5 +150,5 @@ infer env (Application a b) = do
 runInfer :: Environment -> Expr -> Maybe Type
 runInfer env expr = runMaybeT (fst <$> infer env expr) `evalState` 0
 
-runInferAll :: [Assign] -> Maybe Environment
+runInferAll :: [Expr] -> Maybe Environment
 runInferAll expr = runMaybeT (inferAll Map.empty expr) `evalState` 0

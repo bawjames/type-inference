@@ -1,17 +1,16 @@
 import Parser
-import TypeInference
+import AlgorithmW
 
-import Data.Map.Lazy (toList)
+import Data.Map.Lazy (toList, empty)
 import Data.List (intercalate)
 
-go :: IO ()
-go = do
-  let fileName = "src"
+printEnvFromFile :: FilePath -> IO ()
+printEnvFromFile fileName = do
   src <- readFile fileName
   case parseEntry fileName src of
     Left err -> print err
-    Right succ -> case runInferAll succ of
-      Just as -> putStrLn $ intercalate "\n" $ map joinTup $ toList as
-      other -> print other
+    Right succ -> case runVarSupply $ inferAll empty succ of
+      Left err -> putStrLn err
+      Right succ -> putStrLn $ intercalate "\n" $ map pretty $ toList succ
   where
-    joinTup (a, b) = show a ++ " : " ++ show b
+    pretty (a, b) = a ++ " : " ++ show b
