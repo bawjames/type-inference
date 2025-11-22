@@ -1,10 +1,10 @@
 module Types where
 
 import Data.List (intercalate)
-import Data.List.NonEmpty (NonEmpty)
-import Data.List.NonEmpty qualified as NE
 import Data.Map.Lazy qualified as Map
-import Text.Pretty.Simple (pPrint)
+import Data.Tuple (snd)
+import Text.PrettyPrint ((<+>))
+import Text.PrettyPrint qualified as Pr
 
 -- This is just a trie which allows a trie as keys
 -- A Type of nested map singletons is equivalent to a functional type signature in functional languages
@@ -14,19 +14,22 @@ data Type
   = TyFun (Map.Map Type Type)
   | TyVar Int
   | TyCon Primitive
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
 
+-- Type is not a Monoid because there is no empty Type, therefore no mempty.
 instance Semigroup Type where
-  TyFun mA <> TyFun mB = TyFun $ Map.unionWith (<>) mA mB
+  TyFun a <> TyFun b = TyFun $ Map.unionWith (<>) a b
 
--- instance Show Type where
---   show (TyCon c) = show c
---   show (TyVar n) = "t" ++ show n
---   show (TyFun m) = unlines $ draw $ TyFun m
-
--- draw :: Type -> [String]
--- draw (TyFun m) = map (\(k, v) -> show k ++ intercalate "" (draw v)) $ Map.toList m
--- draw x = [show x]
+instance Show Type where
+  show = Pr.render . toDoc
+    where
+      toDoc (TyVar n) = Pr.text $ "t" ++ show n
+      toDoc (TyCon p) = Pr.text $ show p
+      toDoc (TyFun m) = Pr.vcat $
+        flip map (Map.toList m) $
+          \(k, v) -> parenLeft k <+> Pr.text "->" <+> toDoc v
+      parenLeft ty@(TyFun _) = Pr.parens $ toDoc ty
+      parenLeft ty = toDoc ty
 
 data Primitive
   = TyInt
@@ -42,18 +45,16 @@ apply :: Type -> Type -> Maybe Type
 apply (TyFun m) a = Map.lookup a m
 apply _ _ = Nothing
 
+bool = TyCon TyBool
+double = TyCon TyDouble
+float = TyCon TyFloat
+int = TyCon TyInt
+
 go :: IO ()
--- go = pPrint $ apply float $ mergeTrees a b
-go = do
-  let x = a <> b <> c
-  let y = apply x float
-  pPrint x
-  pPrint y
+go =
+  print $ apply x (a <> b)
   where
-    a = fromList [float, float, float]
-    b = fromList [float, double, double]
-    c = fromList [double, double, double]
-    int = TyCon TyInt
-    double = TyCon TyDouble
-    float = TyCon TyFloat
-    bool = TyCon TyBool
+    x = a <> b <> c
+    a = fromList [int, int, int]
+    b = fromList [int, float, float]
+    c = fromList [a <> b, int, float]
