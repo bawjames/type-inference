@@ -8,30 +8,6 @@ When converting to LaTeX:
  - Replace unicode trees with properly typeset trees.
 </details>
 
-## Languages
-
-Sometimes we will be writing in Haskell, and sometimes we will use Alonzo, the language featuring overload trees.
-
-Haskell code has syntax highlighting, and will also be introduced as haskell code.
-
-```Haskell
-fac 0 = 1
-fac n = n * fac (n - 1)
-```
-
-Whereas if we are using Alonzo, there is not yet syntax highlighting,
-```
-let fac = n.
-  match n with
-    0 => 1
-    1 => 1
-    _ => n * fac (n - 1)
-```
-and, importantly, each function only has one case per type;
-use the match keyword instead of multiple definitions.
-
-The lack of this Haskell feature will make it much easier to track duplicate function definitions, which _are_ allowed in Alonzo, provided their type signatures are different, as we will explore.
-
 ## What are Overload Trees?
 
 The fact is, I don't really know what they are either, so this is just a place to collect my thoughts and maybe even communicate the concept to others in some coherent manner.
@@ -115,7 +91,7 @@ To unify, apply any of the following reductions iteratively until no rules apply
  + If `'t` occurs in `a` and `'t /= a`, unification fails.
 </details>
 
-## Back to overload trees: Notation/representation
+## Notation/representation
 
 Individual function types will be represented as `a -> ... -> z`, e.g. `id : a -> a` or `add : Int -> Int -> Int`.
 These can be thought of as singly linked lists, where `->` delimits elements of the list.
@@ -181,9 +157,8 @@ Specifically, we take the children of the applied type as the type of the value 
 ```
 x y : a -> b
 
-x :
-  ├Bool─String
-  ╰Int─String
+x┬Bool─String
+ ╰Int─String
 
 y : Int
 
